@@ -1,3 +1,16 @@
 <resources>
     <string name="app_name">BetaV</string>
+
+    <string-array name="level_array">
+        <item>Choose Level</item>
+        <item>Maintenance</item>
+        <item>Responsible</item>
+        <item>Student</item>
+    </string-array>
+
+    <string-array name="date_array">
+        <item>Time</item>
+        <item>Oldest</item>
+        <item>Newest</item>
+    </string-array>
 </resources>
