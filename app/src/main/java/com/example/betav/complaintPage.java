@@ -22,10 +22,20 @@ import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.ValueEventListener;
+import com.google.firebase.storage.FileDownloadTask;
+import com.google.firebase.storage.StorageReference;
+import com.squareup.picasso.Picasso;
 
+import java.io.File;
+import java.io.IOException;
+import java.util.UUID;
+
+import static android.os.Environment.DIRECTORY_DOWNLOADS;
 import static com.example.betav.FBreff.mAuth;
 import static com.example.betav.FBreff.mStorageRef;
+import static com.example.betav.FBreff.ref;
 import static com.example.betav.FBreff.refCom;
 import static com.example.betav.FBreff.refHis;
 import static com.example.betav.FBreff.refUsers;
@@ -86,20 +96,45 @@ public class complaintPage extends AppCompatActivity{
             }
         });
 
-        //downloadImage(complaintPage.this,"image",DIRECTORY_DOWNLOAD,pic);
+        Download();
+
+        if (state==1){
+            rb5.setChecked(false);
+            rb4.setChecked(false);
+            rb3.setChecked(true);
+        }
+        if (state==2){
+            rb5.setChecked(false);
+            rb4.setChecked(true);
+            rb3.setChecked(false);
+        }
+        if (state==0){
+            rb5.setChecked(true);
+            rb4.setChecked(false);
+            rb3.setChecked(false);
+        }
+
     }
 
-    public void downloadImage(Context context,String fileName, String destinationDirectory, String url){
-            DownloadManager dm = (DownloadManager) context.getSystemService(Context.DOWNLOAD_SERVICE);
-            Uri uri = Uri.parse(url);
-            DownloadManager.Request r = new DownloadManager.Request(uri);
+    private void Download(){
 
-            r.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
-            r.setDestinationInExternalFilesDir(context,destinationDirectory,fileName);
+        final DatabaseReference dataRef = refCom.child(name).child("pic");
 
-            ivC.setImageURI(uri);
-            dm.enqueue(r);
-        }
+        dataRef.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+
+                String link = dataSnapshot.getValue(String.class);
+                Picasso.get().load(link).into(ivC);
+
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError databaseError) {
+                Toast.makeText(complaintPage.this, "No", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
 
     public void Back(View view) {
         Intent t = new Intent (complaintPage.this, mainMaintenance.class);
@@ -155,3 +190,36 @@ public class complaintPage extends AppCompatActivity{
     }
 
 }
+
+          /*ref = mStorageRef.child("images/pic.jpg");
+
+                  ref.getDownloadUrl().addOnSuccessListener(new OnSuccessListener<Uri>() {
+@Override
+public void onSuccess(Uri uri) {
+        String url = uri.toString();
+        uri = Uri.parse(url);
+        imv.setImageURI(uri);
+        downloadFile(ThirdActivity.this,"image","pic.jpn",DIRECTORY_DOWNLOAD,url);
+        }
+        });
+final File localFile = File.createTempFile("images","pic.jpg");
+        mStorageRef.getFile(localFile).addOnSuccessListener(new OnSuccessListener<FileDownloadTask.TaskSnapshot>() {
+@Override
+public void onSuccess(FileDownloadTask.TaskSnapshot taskSnapshot) {
+        imv.setImageURI(Uri.fromFile(localFile));
+        }
+        });
+        }
+
+public void downloadFile(Context context,String fileName, String fileExtension, String destinationDirectory, String url){
+
+        DownloadManager dm = (DownloadManager) context.getSystemService(Context.DOWNLOAD_SERVICE);
+        Uri uri = Uri.parse(url);
+        DownloadManager.Request r = new DownloadManager.Request(uri);
+
+        r.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+        r.setDestinationInExternalFilesDir(context,destinationDirectory,fileName+fileExtension);
+
+        imv.setImageURI(uri);
+        dm.enqueue(r);
+        }*/

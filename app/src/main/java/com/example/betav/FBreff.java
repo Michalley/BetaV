@@ -21,9 +21,12 @@ public class FBreff {
 
     public static DatabaseReference refCom = FBDB.getReference("Complain");
 
+    public static DatabaseReference refComP = FBDB.getReference("Complain");
+
     public static DatabaseReference refHis = FBDB.getReference("History");
 
     public static StorageReference mStorageRef = FirebaseStorage.getInstance().getReference();
 
-    public static StorageReference ref = mStorageRef.child("images/pic.jpg");
+    public static StorageReference ref = FirebaseStorage.getInstance().getReference().child("imageComplain/");
+
 }

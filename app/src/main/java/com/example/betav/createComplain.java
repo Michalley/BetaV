@@ -1,15 +1,19 @@
 package com.example.betav;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.content.ContentResolver;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.view.View;
+import android.webkit.MimeTypeMap;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
@@ -24,9 +28,12 @@ import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.storage.FileDownloadTask;
 import com.google.firebase.storage.StorageReference;
+import com.google.firebase.storage.StorageTask;
 import com.google.firebase.storage.UploadTask;
 
 import java.io.File;
@@ -35,8 +42,11 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Random;
+import java.util.UUID;
 
+import static com.example.betav.FBreff.FBDB;
 import static com.example.betav.FBreff.mAuth;
 import static com.example.betav.FBreff.mStorageRef;
 import static com.example.betav.FBreff.ref;
@@ -49,9 +59,6 @@ public class createComplain extends AppCompatActivity implements AdapterView.OnI
 
 
     private static final int PICK_IMAGE = 100;
-    Uri imageUri;
-
-    Intent t;
 
     EditText etN, etNO;
     TextView tvD, tvT;
@@ -59,20 +66,21 @@ public class createComplain extends AppCompatActivity implements AdapterView.OnI
     RadioGroup rg;
     RadioButton rb1,rb2;
     Spinner spAr,spCat;
-    String date,time,category,zone,note,name,value1,value2,user,pic,uid;
+    Uri ImageData;
+    Intent t;
+
+    String date,time,category,zone,note,name,value1,value2,user,uid,pic;
     int state,emergency;
 
     ArrayList<String> aa1 = new ArrayList<>();
     ArrayList<String> aa2 = new ArrayList<>();
 
-    Complain c;
-
+    private StorageTask mUploadTask;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_create_complain);
-
 
         etN = (EditText) findViewById(R.id.tvN);
         etNO = (EditText) findViewById(R.id.etNo);
@@ -87,14 +95,6 @@ public class createComplain extends AppCompatActivity implements AdapterView.OnI
         rb1 = (RadioButton) findViewById(R.id.rb1);
         rb2 = (RadioButton) findViewById(R.id.rb2);
 
-        ivC.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                openGallery();
-            }
-        });
-
-
         Calendar calendar = Calendar.getInstance();
         SimpleDateFormat format = new SimpleDateFormat("HH:mm:ss");
         time = format.format(calendar.getTime());
@@ -107,9 +107,54 @@ public class createComplain extends AppCompatActivity implements AdapterView.OnI
 
         fillSpinnerA();
         fillSpinnerC();
-
         getUser();
 
+        ivC.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                openGallery();
+            }
+        });
+    }
+
+    private void openGallery() {
+        Intent gallery = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.INTERNAL_CONTENT_URI);
+        startActivityForResult(gallery, PICK_IMAGE);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data){
+        super.onActivityResult(requestCode,resultCode,data);
+
+        if (requestCode == PICK_IMAGE && resultCode == RESULT_OK
+                && data != null && data.getData() != null) {
+            ImageData = data.getData();
+
+
+            try {
+                Bitmap bitmap = MediaStore.Images.Media.getBitmap(getContentResolver(),ImageData);
+                ivC.setImageBitmap(bitmap);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+            final StorageReference reff = ref.child(ImageData.getLastPathSegment());
+
+            reff.putFile(ImageData).addOnSuccessListener(new OnSuccessListener<UploadTask.TaskSnapshot>() {
+                @Override
+                public void onSuccess(UploadTask.TaskSnapshot taskSnapshot) {
+
+                    reff.getDownloadUrl().addOnSuccessListener(new OnSuccessListener<Uri>() {
+                        @Override
+                        public void onSuccess(Uri uri) {
+                            pic = String.valueOf(uri);
+                            Toast.makeText(createComplain.this,pic,Toast.LENGTH_SHORT).show();
+                        }
+                    });
+
+                }
+            });
+        }
     }
 
     public void fillSpinnerA (){
@@ -158,7 +203,6 @@ public class createComplain extends AppCompatActivity implements AdapterView.OnI
                 value1 = us.getName();
                 value2 = us.getlName();
                 user = value1+" "+value2;
-                Toast.makeText(createComplain.this,"Got User",Toast.LENGTH_LONG).show();
             }
 
             @Override
@@ -168,70 +212,19 @@ public class createComplain extends AppCompatActivity implements AdapterView.OnI
         });
     }
 
-
-    private void openGallery() {
-        Intent gallery = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.INTERNAL_CONTENT_URI);
-        startActivityForResult(gallery, PICK_IMAGE);
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (resultCode == RESULT_OK && requestCode == PICK_IMAGE) {
-            imageUri = data.getData();
-        }
-        try {
-            uploadFile();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public void uploadFile() throws IOException {
-        if (imageUri != null) {
-            StorageReference riversRef = mStorageRef.child("images"+imageUri.getLastPathSegment());
-            riversRef.putFile(imageUri)
-                    .addOnSuccessListener(new OnSuccessListener<UploadTask.TaskSnapshot>() {
-                        @Override
-                        public void onSuccess(UploadTask.TaskSnapshot taskSnapshot) {
-                            Toast.makeText(createComplain.this, "Success", Toast.LENGTH_SHORT).show();
-                        }
-                    })
-                    .addOnFailureListener(new OnFailureListener() {
-                        @Override
-                        public void onFailure(@NonNull Exception exception) {
-                            Toast.makeText(createComplain.this, "Fail", Toast.LENGTH_SHORT).show();
-                        }
-                    });
-            Toast.makeText(createComplain.this, "Uploaded Successfully", Toast.LENGTH_SHORT).show();
-        } else {
-            Toast.makeText(createComplain.this, "Empty File", Toast.LENGTH_SHORT).show();
-        }
-        Upload();
-    }
-
-
-    public void Upload() throws IOException {
-
-        ref.getDownloadUrl().addOnSuccessListener(new OnSuccessListener<Uri>() {
-            @Override
-            public void onSuccess(Uri uri) {
-                String url = uri.toString();
-                uri = Uri.parse(url);
-                ivC.setImageURI(uri);
-                pic = url;
-            }
-        });
-        final File localFile = File.createTempFile("images", imageUri.getLastPathSegment());
-        mStorageRef.getFile(localFile).addOnSuccessListener(new OnSuccessListener<FileDownloadTask.TaskSnapshot>() {
-            @Override
-            public void onSuccess(FileDownloadTask.TaskSnapshot taskSnapshot) {
-                ivC.setImageURI(Uri.fromFile(localFile));
-            }
-        });
-    }
-
     public void save(View view) {
+
+        name = etN.getText().toString();
+        note = etNO.getText().toString();
+        state=0;
+
+        if (rb1.isChecked()){
+            emergency=1;
+        }
+        if (rb2.isChecked()){
+            emergency=2;
+        }
+
         AlertDialog.Builder adb;
         adb = new AlertDialog.Builder(this);
         adb.setTitle("Saving...");
@@ -240,6 +233,8 @@ public class createComplain extends AppCompatActivity implements AdapterView.OnI
             @Override
             public void onClick(DialogInterface dialog, int which) {
                 t = new Intent (createComplain.this, MainStuRespo.class);
+                WriteDataBase(user,date,time,category,zone,emergency,state,note,name,pic);
+                Toast.makeText(createComplain.this,pic,Toast.LENGTH_LONG).show();
                 startActivity(t);
             }
         });
@@ -251,23 +246,11 @@ public class createComplain extends AppCompatActivity implements AdapterView.OnI
         });
         AlertDialog ad = adb.create();
         ad.show();
-        name = etN.getText().toString();
-        note = etNO.getText().toString();
-        state=0;
-        if (rb1.isChecked()){
-            emergency=1;
-        }
-        if (rb2.isChecked()){
-            emergency=2;
-        }
-
-        WriteDataBase(user,date,time,category,zone,emergency,state,note,name,pic);
     }
 
     public void WriteDataBase(String user,String date,String time,String category,String zone,int emergency,int state,String note,String name,String pic) {
-        c = new Complain(user,date,time,category,zone,emergency,state,note,name,pic);
+        Complain c = new Complain(user,date,time,category,zone,emergency,state,note,name,pic);
         refCom.child(name).setValue(c);
-        Toast.makeText(createComplain.this, "Success", Toast.LENGTH_SHORT).show();
     }
 
     public void Back(View view) {
@@ -277,18 +260,47 @@ public class createComplain extends AppCompatActivity implements AdapterView.OnI
 
     @Override
     public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-        if (parent.getId() == spAr.getId()){
+        String st1=spAr.getSelectedItem().toString();
+        String st2 = spCat.getSelectedItem().toString();
+        /*if (parent.getId() == spAr.getId()){
+            positionZ=position;
+        }*/
+
+        /*if (parent.getId() == spAr.getId()){
             if (position==0){
-                zone="All Areas";
-            }
-            if (position==1){
-                zone="Hall";
-            }
-            if (position==2){
-                zone="Garden";
+                Toast.makeText(createComplain.this, "Select Area", Toast.LENGTH_SHORT).show();
+            }else{
+                zone = spAr.getSelectedItem().toString();
             }
         }
         if (parent.getId() == spCat.getId()){
+            if (position==0){
+                Toast.makeText(createComplain.this, "Select Category", Toast.LENGTH_SHORT).show();
+            }else{
+                category = spCat.getSelectedItem().toString();
+            }
+        }*/
+        /*if (parent.getId() == spAr.getId()){
+            if (position==0){
+                zone=st1;
+            }
+            if (position==1){
+                zone=st1;
+            }
+            if (position==2){
+                zone=st1;
+            }
+        }*/
+
+        if (parent.getId() == spCat.getId()){
+            zone = st1;
+        }
+
+        if (parent.getId() == spCat.getId()){
+            category = st2;
+        }
+
+        /*if (parent.getId() == spCat.getId()){
             if (position==0){
                 category = "All Categories";
             }
@@ -301,7 +313,7 @@ public class createComplain extends AppCompatActivity implements AdapterView.OnI
             if (position==3){
                 category="Electricity";
             }
-        }
+        }*/
     }
 
     @Override
